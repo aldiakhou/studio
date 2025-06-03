@@ -53,12 +53,14 @@ Your diagram should include:
 
 Guidelines for the diagram:
 -   **Clarity and Readability:** While detail is requested, the diagram must remain understandable. Avoid excessive clutter. Make smart choices about what is "important" to display.
--   **Mermaid Syntax and Node Naming:**
+-   **Mermaid Syntax and Node Naming - VERY IMPORTANT:**
     *   **Node IDs:** For each element (file, class, function, etc.), use a simple, unique, **alphanumeric ID** (e.g., \`file1\`, \`classA\`, \`funcB_in_classA\`, \`varX\`). These IDs **MUST NOT** contain spaces, slashes, colons, parentheses, brackets, or any other special characters.
     *   **Node Labels (Display Text):** The descriptive text for a node (e.g., the actual file path like \`src/components/button.tsx\`, or a function signature like \`MyClass.getUser(id: string): User\`) **MUST** be provided as the label part, enclosed in double quotes.
         Example of defining a node: \`file1["src/components/button.tsx"]\`
         Example of defining another node: \`funcA["doSomething(param1: string): void"]\`
         Example of a link: \`file1 --> funcA\`
+    *   **CRITICAL: Node labels MUST be single-line.** Do NOT include raw newline characters (e.g., '\\n') or attempt to create multi-line labels by embedding extensive file content, '---' separators, or code snippets directly within a node's quoted label.
+    *   **Use labels for concise identification** (like file paths, function names, class names), not for embedding large blocks of text or file contents.
     *   If a descriptive label itself needs to contain double quotes, try to simplify the label to avoid this. If unavoidable, ensure Mermaid's requirements for escaping internal quotes are met (often by using \`&quot;\` or by careful structuring, though simplification is highly preferred).
     *   Ensure all connections (\`-->\`, \`---\`, etc.) are correctly formatted between the simple alphanumeric IDs.
 -   **Focus:** The goal is to understand the project's components and how they interact.
