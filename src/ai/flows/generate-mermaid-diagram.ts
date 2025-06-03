@@ -35,13 +35,28 @@ const generateMermaidDiagramPrompt = ai.definePrompt({
   name: 'generateMermaidDiagramPrompt',
   input: {schema: GenerateMermaidDiagramInputSchema},
   output: {schema: GenerateMermaidDiagramOutputSchema},
-  prompt: `You are an expert at creating Mermaid diagrams to visualize code project structures.
-Based on the project files provided below, generate a single Mermaid diagram that represents the overall structure.
-This includes files, folders (derived from paths), and important relationships or dependencies between them (e.g., imports, function calls if discernible).
+  prompt: `You are an expert at creating detailed and interactive Mermaid diagrams to visualize code project structures.
+Based on the project files provided below, generate a single Mermaid diagram that represents the project's architecture and key components.
 
-Focus on clarity and a high-level overview. If the project is very large or file content is summarized/skipped, make reasonable inferences.
-Do not try to represent every single line of code or minor detail. Create a diagram that is informative and readable.
-Consider using subgraphs for folders if appropriate.
+Your diagram should include:
+1.  **File and Folder Structure:** Use subgraphs to represent folders. Show individual files within their respective folders.
+2.  **Key Code Elements:** Within or linked to each file, detail important:
+    *   **Classes:** Include their names and a list of important methods (e.g., \`MyClass[methodA(), methodB()]\`).
+    *   **Functions/Methods:** Show their names. If space permits and it's crucial for understanding, include key parameters and a concise return type (e.g., \`calculateTotal(items: Array, discount?: number): number\`).
+    *   **Objects:** Represent significant object instantiations or definitions.
+    *   **Variables/Constants:** Depict important module-level or class-level variables/constants if they play a key role in the structure or logic.
+3.  **Relationships:** Clearly show relationships between these elements, such as:
+    *   Function/method calls between different components.
+    *   Class inheritance or implementation.
+    *   Instantiation of classes.
+    *   Import/export dependencies between files/modules.
+4.  **Node Naming for Interactivity:** Ensure node labels are descriptive and specific (e.g., \`file.ts/MyClass\`, \`utils.js/formatDate()\`). Make class methods or functions part of the node label itself or closely associated if that makes the diagram clearer. If a node represents a function, its label should ideally be the function signature. If it's a class, its label could be the class name, potentially with key methods.
+
+Guidelines for the diagram:
+-   **Clarity and Readability:** While detail is requested, the diagram must remain understandable. Avoid excessive clutter. Make smart choices about what is "important" to display.
+-   **Mermaid Syntax:** Use valid Mermaid syntax (e.g., \`graph TD;\` or \`graph LR;\`). For classes, you can use the classDiagram syntax if appropriate, or represent them as nodes in a flowchart with detailed labels. Flowcharts are generally more flexible for mixed element types.
+-   **Focus:** The goal is to understand the project's components and how they interact.
+-   **Conciseness:** Be concise in labels, especially for parameters and return types.
 
 Project Files:
 {{#each files}}
@@ -52,8 +67,9 @@ Content:
 ---
 {{/each}}
 
-The diagram should be a valid Mermaid graph (e.g., graph TD, graph LR) or flowchart.
-Ensure the output is only the Mermaid syntax for the diagram.
+The output should ONLY be the Mermaid syntax for the diagram. Do not include any other text, titles, or explanations outside the Mermaid code block.
+Start your diagram with \`graph TD;\` or \`graph LR;\`.
+
 Diagram:
   `,
 });
@@ -65,14 +81,10 @@ const generateMermaidDiagramFlow = ai.defineFlow(
     outputSchema: GenerateMermaidDiagramOutputSchema,
   },
   async input => {
-    // Basic validation: Ensure there are files to process
     if (!input.files || input.files.length === 0) {
       throw new Error("No files provided for diagram generation.");
     }
-    // Potentially, further pre-processing of files input could happen here if needed.
-    // For example, if contents are too long, summarize them before sending to the prompt,
-    // though the current prompt implies this might already be handled by the client.
-
+    
     const {output} = await generateMermaidDiagramPrompt(input);
     if (!output?.mermaidDiagram) {
       throw new Error("AI failed to generate a Mermaid diagram. The output was empty or invalid.");
