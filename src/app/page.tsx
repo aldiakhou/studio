@@ -1,3 +1,4 @@
+
 'use client';
 
 import type React from 'react';
@@ -7,16 +8,21 @@ import { CodeEditor } from '@/components/code-flow/code-editor';
 import { MermaidViewer } from '@/components/code-flow/mermaid-viewer';
 import { generateMermaidDiagramAction } from './actions';
 import { useToast } from '@/hooks/use-toast';
-import type { GenerateMermaidDiagramOutput } from '@/ai/flows/generate-mermaid-diagram';
+import type { GenerateMermaidDiagramOutput, GenerateMermaidDiagramInput } from '@/ai/flows/generate-mermaid-diagram';
+
+interface UploadedFile {
+  path: string;
+  content: string;
+}
 
 export default function CodeFlowPage() {
   const [code, setCode] = useState<string>('');
+  const [uploadedFolderFiles, setUploadedFolderFiles] = useState<UploadedFile[] | null>(null);
   const [mermaidSyntax, setMermaidSyntax] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [highlightedNodeText, setHighlightedNodeText] = useState<string | null>(null);
   
-  // Ref to store the SVG element for export
   const mermaidSvgElementRef = useRef<SVGElement | null>(null);
 
   const getMermaidSvgElement = useCallback(() => mermaidSvgElementRef.current, []);
@@ -26,21 +32,45 @@ export default function CodeFlowPage() {
 
   const { toast } = useToast();
 
+  const handleFolderSelect = (files: UploadedFile[] | null) => {
+    setUploadedFolderFiles(files);
+    if (files && files.length > 0) {
+      setCode(`Folder uploaded: ${files.length} file${files.length > 1 ? 's' : ''} ready for analysis.\n\n${files.slice(0, 5).map(f => `- ${f.path}`).join('\n')}${files.length > 5 ? '\n...' : ''}`);
+    } else if (code.startsWith("Folder uploaded:")) { // Clear message if folder is deselected or single file loaded
+      setCode("");
+    }
+  };
+
+  const handleCodeChange = (newCode: string) => {
+    setCode(newCode);
+    if (uploadedFolderFiles) { // If user types in editor, assume they are switching from folder to single code input
+      setUploadedFolderFiles(null);
+    }
+  }
+
   const handleGenerateDiagram = async () => {
-    if (!code.trim()) {
+    let input: GenerateMermaidDiagramInput;
+
+    if (uploadedFolderFiles && uploadedFolderFiles.length > 0) {
+      input = { files: uploadedFolderFiles };
+    } else if (code.trim()) {
+      input = { files: [{ path: 'input_code.txt', content: code }] };
+    } else {
       toast({
         title: 'Input Required',
-        description: 'Please enter some code to generate a diagram.',
+        description: 'Please enter some code or upload a file/folder to generate a diagram.',
         variant: 'destructive',
       });
       return;
     }
+
     setIsLoading(true);
     setError(null);
-    setHighlightedNodeText(null); // Reset highlight on new generation
+    setMermaidSyntax(null); 
+    setHighlightedNodeText(null);
 
     try {
-      const result = await generateMermaidDiagramAction({ code }) as GenerateMermaidDiagramOutput & { error?: string };
+      const result = await generateMermaidDiagramAction(input) as GenerateMermaidDiagramOutput & { error?: string };
       if (result.error) {
         throw new Error(result.error);
       }
@@ -51,7 +81,7 @@ export default function CodeFlowPage() {
           description: 'Mermaid diagram successfully created.',
         });
       } else {
-        throw new Error('AI did not return a diagram. Try modifying your code or prompt.');
+        throw new Error('AI did not return a diagram. Try modifying your input or prompt.');
       }
     } catch (e: any) {
       console.error('Error generating diagram:', e);
@@ -75,16 +105,17 @@ export default function CodeFlowPage() {
         getMermaidSvgElement={getMermaidSvgElement}
       />
       <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-        <div className="h-full min-h-[calc(100vh-200px)] md:min-h-0"> {/* Ensure editor takes available height */}
+        <div className="h-full min-h-[calc(100vh-200px)] md:min-h-0">
           <CodeEditor
             code={code}
-            setCode={setCode}
+            setCode={handleCodeChange}
             onGenerate={handleGenerateDiagram}
             isLoading={isLoading}
             highlightedTerm={highlightedNodeText}
+            onFolderSelect={handleFolderSelect}
           />
         </div>
-        <div className="h-full min-h-[calc(100vh-200px)] md:min-h-0"> {/* Ensure viewer takes available height */}
+        <div className="h-full min-h-[calc(100vh-200px)] md:min-h-0">
            <MermaidViewer
             mermaidSyntax={mermaidSyntax}
             isLoading={isLoading}

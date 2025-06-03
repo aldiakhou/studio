@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 // This is a workaround for a Genkit + Next.js bug.
 // TODO: Remove this when fix is released.
@@ -12,11 +13,10 @@ export async function generateMermaidDiagramAction(input: GenerateMermaidDiagram
         return result;
     } catch (error) {
         console.error("Error in generateMermaidDiagramAction:", error);
-        // It's good practice to return a structured error or throw a custom error
-        // For now, we'll rethrow, but this could be refined
         if (error instanceof Error) {
-             return { error: error.message } as any; // Or a more specific error structure
+             return { error: error.message } as any;
         }
-        return { error: "An unknown error occurred" } as any;
+        return { error: "An unknown error occurred during diagram generation" } as any;
     }
 }
+
