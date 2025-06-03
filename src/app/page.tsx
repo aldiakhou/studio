@@ -2,7 +2,7 @@
 'use client';
 
 import type React from 'react';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { AppHeader } from '@/components/code-flow/app-header';
 import { CodeEditor } from '@/components/code-flow/code-editor';
 import { MermaidViewer } from '@/components/code-flow/mermaid-viewer';
@@ -45,18 +45,41 @@ export default function CodeFlowPage() {
   };
 
   const handleCodeChange = (newCode: string) => {
-    setCode(newCode);
-    if (uploadedFolderFiles) { 
-      setUploadedFolderFiles(null);
+    // If user types in editor after a folder was uploaded,
+    // we assume they want to analyze the typed code, not the folder.
+    if (uploadedFolderFiles && newCode !== code && !newCode.startsWith("Folder uploaded:")) {
+      setUploadedFolderFiles(null); 
     }
+    setCode(newCode);
   }
+
+  useEffect(() => {
+    if (highlightedNodeText && uploadedFolderFiles && uploadedFolderFiles.length > 0) {
+      // Attempt to find if the highlighted text is a file path from a subgraph label
+      const potentialPath = highlightedNodeText; // Assuming label is just the path
+      const foundFile = uploadedFolderFiles.find(f => f.path === potentialPath);
+
+      if (foundFile) {
+        // If the user has manually edited the "Folder uploaded..." message, preserve it.
+        // Otherwise, show the content of the selected file.
+        if (code.startsWith("Folder uploaded:") || (uploadedFolderFiles && uploadedFolderFiles.some(upFile => upFile.path === potentialPath)) ) {
+           setCode(foundFile.content);
+           toast({
+             title: "File Loaded in Editor",
+             description: `Displaying content for: ${foundFile.path}`,
+           });
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightedNodeText, uploadedFolderFiles]); // setCode and toast are stable
 
   const handleGenerateDiagram = async () => {
     let input: GenerateMermaidDiagramInput;
 
     if (uploadedFolderFiles && uploadedFolderFiles.length > 0) {
       input = { files: uploadedFolderFiles };
-    } else if (code.trim()) {
+    } else if (code.trim() && !code.startsWith("Folder uploaded:")) { // Ensure it's not just the placeholder message
       input = { files: [{ path: 'input_code.txt', content: code }] };
     } else {
       toast({
@@ -70,7 +93,7 @@ export default function CodeFlowPage() {
     setIsLoading(true);
     setError(null);
     setMermaidSyntax(null); 
-    setHighlightedNodeText(null);
+    // setHighlightedNodeText(null); // Keep highlighted node if user re-generates
 
     let attempts = 0;
     let operationSuccessful = false;
@@ -162,6 +185,7 @@ export default function CodeFlowPage() {
             isLoading={isLoading}
             highlightedTerm={highlightedNodeText}
             onFolderSelect={handleFolderSelect}
+            isFolderUploaded={!!uploadedFolderFiles && uploadedFolderFiles.length > 0}
           />
         </div>
         <div className="h-full min-h-[calc(100vh-200px)] md:min-h-0">
@@ -182,3 +206,4 @@ export default function CodeFlowPage() {
     </div>
   );
 }
+

@@ -39,31 +39,30 @@ const generateMermaidDiagramPrompt = ai.definePrompt({
 Based on the project files provided below, generate a single Mermaid diagram that represents the project's architecture and key components.
 
 Your diagram should include:
-1.  **File and Folder Structure:** Use subgraphs to represent folders. Show individual files within their respective folders.
-2.  **Key Code Elements:** Within or linked to each file, detail important:
-    *   **Classes:** Include their names and a list of important methods (e.g., label "MyClass" with methods listed).
-    *   **Functions/Methods:** Show their names. If space permits and it's crucial for understanding, include key parameters and a concise return type (e.g., label "calculateTotal(items: Array, discount?: number): number").
-    *   **Objects:** Represent significant object instantiations or definitions.
-    *   **Variables/Constants:** Depict important module-level or class-level variables/constants if they play a key role in the structure or logic.
-3.  **Relationships:** Clearly show relationships between these elements, such as:
-    *   Function/method calls between different components.
+1.  **File and Folder Structure:**
+    *   **CRITICAL: Use Mermaid 'subgraph' blocks for EACH file.** The label for the subgraph MUST be the exact file path enclosed in double quotes (e.g., \`subgraph "src/components/button.tsx"\`).
+    *   If there's a clear folder structure, you can optionally nest subgraphs for folders, but individual file subgraphs are essential.
+2.  **Key Code Elements (within their file's subgraph):**
+    *   **Classes:** Represent as nodes within their file's subgraph. Include their names. If methods are important for understanding, list key method names as part of the class node's label or as separate linked nodes if space permits.
+    *   **Functions/Methods:** Represent as nodes within their file's subgraph. Show their names. If concise and crucial, include key parameters and a return type in the label (e.g., \`"calculateTotal(items: Array, discount?: number): number"\`).
+    *   **Objects:** Represent significant object instantiations or definitions as nodes if they are central to the structure.
+    *   **Variables/Constants:** Depict important module-level or class-level variables/constants as nodes if they play a key role in the structure or logic.
+3.  **Relationships:** Clearly show relationships between these elements (both within the same file and across different files), such as:
+    *   Function/method calls.
     *   Class inheritance or implementation.
     *   Instantiation of classes.
-    *   Import/export dependencies between files/modules.
+    *   Import/export dependencies between files/modules (link file subgraphs or nodes within them).
 
 Guidelines for the diagram:
--   **Clarity and Readability:** While detail is requested, the diagram must remain understandable. Avoid excessive clutter. Make smart choices about what is "important" to display.
+-   **Clarity and Interactivity:** The primary goal is to create a diagram where clicking on a file's subgraph label (the file path) will be used by the application to show that file's content. Therefore, accurate file path labeling for subgraphs is paramount.
 -   **Mermaid Syntax and Node Naming - VERY IMPORTANT:**
-    *   **Node IDs:** For each element (file, class, function, etc.), use a simple, unique, **alphanumeric ID** (e.g., \`file1\`, \`classA\`, \`funcB_in_classA\`, \`varX\`). These IDs **MUST NOT** contain spaces, slashes, colons, parentheses, brackets, or any other special characters.
-    *   **Node Labels (Display Text):** The descriptive text for a node (e.g., the actual file path like \`src/components/button.tsx\`, or a function signature like \`MyClass.getUser(id: string): User\`) **MUST** be provided as the label part, enclosed in double quotes.
-        Example of defining a node: \`file1["src/components/button.tsx"]\`
-        Example of defining another node: \`funcA["doSomething(param1: string): void"]\`
-        Example of a link: \`file1 --> funcA\`
-    *   **CRITICAL: Node labels MUST be single-line.** Do NOT include raw newline characters (e.g., '\\n') or attempt to create multi-line labels by embedding extensive file content, '---' separators, or code snippets directly within a node's quoted label.
-    *   **Use labels for concise identification** (like file paths, function names, class names), not for embedding large blocks of text or file contents.
-    *   If a descriptive label itself needs to contain double quotes, try to simplify the label to avoid this. If unavoidable, ensure Mermaid's requirements for escaping internal quotes are met (often by using \`&quot;\` or by careful structuring, though simplification is highly preferred).
+    *   **Node IDs:** For each element (file subgraph, class, function, etc.), use a simple, unique, **alphanumeric ID** (e.g., \`file1\`, \`classA\`, \`funcB_in_classA\`, \`varX\`). These IDs **MUST NOT** contain spaces, slashes, colons, parentheses, brackets, or any other special characters. Use underscores if needed (e.g., \`src_components_button_tsx\`).
+    *   **Node Labels (Display Text):** The descriptive text for a node (e.g., a function signature like \`MyClass.getUser(id: string): User\`) **MUST** be provided as the label part, enclosed in double quotes. Example of defining a node: \`funcA["doSomething(param1: string): void"]\`.
+    *   **Subgraph Labels:** As stated, use the file path in quotes: \`subgraph "src/components/button.tsx"\`.
+    *   **CRITICAL: All node labels and subgraph labels MUST be single-line.** Do NOT include raw newline characters (e.g., '\\n') or attempt to create multi-line labels by embedding extensive file content, '---' separators, or code snippets directly within a node's or subgraph's quoted label.
+    *   Use labels for concise identification, not for embedding large blocks of text or file contents.
     *   Ensure all connections (\`-->\`, \`---\`, etc.) are correctly formatted between the simple alphanumeric IDs.
--   **Focus:** The goal is to understand the project's components and how they interact.
+-   **Focus:** Understand the project's components and how they interact.
 -   **Conciseness:** Be concise in labels, especially for parameters and return types.
 
 Project Files:

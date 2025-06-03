@@ -6,9 +6,11 @@ import { ChangeEvent, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { UploadCloud, Play, Loader2, FolderOpen } from 'lucide-react';
+import { UploadCloud, Play, Loader2, FolderOpen, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 
 interface UploadedFile {
   path: string;
@@ -22,6 +24,7 @@ interface CodeEditorProps {
   isLoading: boolean;
   highlightedTerm: string | null;
   onFolderSelect: (files: UploadedFile[] | null) => void;
+  isFolderUploaded: boolean;
 }
 
 const MAX_FILES_TO_PROCESS = 50;
@@ -39,11 +42,8 @@ const readFileAsText = (file: File): Promise<string> => {
       resolve(`// File content skipped: Ignored file type (${file.name}).`);
       return;
     }
-    // Basic check for binary-like files based on common non-text types
-    // This is not foolproof but can help filter some binary files.
     if (file.type && !(file.type.startsWith('text/') || ['application/json', 'application/javascript', 'application/xml', 'application/typescript'].includes(file.type) || file.name.endsWith('.md'))) {
-        // If type is known and not text-like or common code/data format
-        if (file.type !== 'application/octet-stream') { // octet-stream is generic, could be text
+        if (file.type !== 'application/octet-stream') { 
              resolve(`// File content skipped: Likely binary or non-text file type (${file.type}).`);
              return;
         }
@@ -58,7 +58,7 @@ const readFileAsText = (file: File): Promise<string> => {
 };
 
 
-export function CodeEditor({ code, setCode, onGenerate, isLoading, highlightedTerm, onFolderSelect }: CodeEditorProps) {
+export function CodeEditor({ code, setCode, onGenerate, isLoading, highlightedTerm, onFolderSelect, isFolderUploaded }: CodeEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -81,10 +81,16 @@ export function CodeEditor({ code, setCode, onGenerate, isLoading, highlightedTe
         filesAttempted++;
 
         const filePath = file.webkitRelativePath || file.name;
-        if (IGNORED_FOLDERS.some(folder => filePath.startsWith(folder + '/')) || IGNORED_FOLDERS.includes(filePath.split('/')[0])) {
+        if (IGNORED_FOLDERS.some(folder => filePath.includes(`/${folder}/`)) || IGNORED_FOLDERS.some(folder => filePath.startsWith(folder + '/')) || IGNORED_FOLDERS.includes(filePath.split('/')[0])) {
           filesSkippedByIgnoredPath++;
           continue;
         }
+         if (file.size > MAX_FILE_SIZE_BYTES) {
+          filesSkippedBySize++;
+          projectFilesArray.push({ path: filePath, content: `// File content skipped: Exceeds size limit of ${MAX_FILE_SIZE_BYTES / (1024 * 1024)}MB.`});
+          continue;
+        }
+
 
         try {
           const content = await readFileAsText(file);
@@ -102,25 +108,25 @@ export function CodeEditor({ code, setCode, onGenerate, isLoading, highlightedTe
           description: `${filesReadSuccessfully} files ready. ${filesSkippedByIgnoredPath} skipped (ignored paths). ${filesSkippedBySize} skipped (size).`,
         });
       } else {
-        setCode("No suitable files found in the selected folder or processing limit reached early.");
-        onFolderSelect(null);
+        // setCode("No suitable files found in the selected folder or processing limit reached early.");
+        onFolderSelect(null); // Ensure this is called to reset folder state
         toast({ title: "Folder Upload", description: "No suitable files found or all files were filtered out.", variant: "destructive" });
       }
-    } else if (selectedFiles.length === 1) { // Single file upload
+    } else if (selectedFiles.length === 1) { 
       const file = selectedFiles[0];
        if (file.size > MAX_FILE_SIZE_BYTES) {
         toast({ title: "File Upload", description: `File is too large (max ${MAX_FILE_SIZE_BYTES / (1024*1024)}MB).`, variant: "destructive" });
-        setCode(`// File too large: ${file.name}`);
+        // setCode(`// File too large: ${file.name}`);
         onFolderSelect(null);
         return;
       }
       try {
         const content = await readFileAsText(file);
         setCode(content);
-        onFolderSelect(null); // Clear folder selection
+        onFolderSelect(null); 
       } catch (err: any) {
-        toast({ title: "File Read Error", description: `Could not read file: ${err.message}`, variant: "destructive" });
-        setCode(`// Error reading file: ${file.name}`);
+        toast({ title: "File ReadError", description: `Could not read file: ${err.message}`, variant: "destructive" });
+        // setCode(`// Error reading file: ${file.name}`);
         onFolderSelect(null);
       }
     }
@@ -128,13 +134,18 @@ export function CodeEditor({ code, setCode, onGenerate, isLoading, highlightedTe
 
   const handleFileEvent = (event: ChangeEvent<HTMLInputElement>, isFolder: boolean) => {
     handleFiles(event.target.files, isFolder);
-    if (event.target) { // Reset input to allow re-selection of the same file/folder
+    if (event.target) { 
       event.target.value = '';
     }
   };
 
   const triggerFileInput = () => fileInputRef.current?.click();
   const triggerFolderInput = () => folderInputRef.current?.click();
+  
+  const isAnalyzingFolder = isFolderUploaded && code.startsWith("Folder uploaded:");
+  const isAnalyzingSinglePastedFile = !isFolderUploaded && code.trim() !== "" && !code.startsWith("Folder uploaded:");
+  const isDisplayingSelectedFile = isFolderUploaded && !code.startsWith("Folder uploaded:");
+
 
   return (
     <Card className="h-full flex flex-col shadow-lg rounded-lg">
@@ -143,6 +154,15 @@ export function CodeEditor({ code, setCode, onGenerate, isLoading, highlightedTe
         <CardDescription>Paste your code, upload a file, or upload a project folder.</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow flex flex-col gap-4">
+        {isDisplayingSelectedFile && highlightedTerm && (
+          <Alert variant="default" className="mb-2 bg-blue-50 border-blue-200">
+            <Info className="h-4 w-4 !text-blue-700" />
+            <AlertTitle className="text-blue-800">Viewing File Content</AlertTitle>
+            <AlertDescription className="text-blue-700">
+              Displaying content for <span className="font-semibold font-code">{highlightedTerm}</span>. Edit or upload a new folder to analyze different code.
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="flex-grow">
           <Textarea
             value={code}
@@ -150,6 +170,7 @@ export function CodeEditor({ code, setCode, onGenerate, isLoading, highlightedTe
             placeholder="Enter your code here, or upload a file/folder..."
             className="w-full h-full min-h-[300px] resize-none font-code text-sm rounded-md shadow-inner"
             aria-label="Code Input Area"
+            readOnly={isDisplayingSelectedFile} // Make readonly if showing a selected file from folder
           />
         </div>
         <div className="flex flex-col sm:flex-row gap-2 items-center">
@@ -175,7 +196,11 @@ export function CodeEditor({ code, setCode, onGenerate, isLoading, highlightedTe
             webkitdirectory=""
             directory=""
           />
-          <Button onClick={onGenerate} disabled={isLoading || (!code.trim() && !onFolderSelect)} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground">
+          <Button 
+            onClick={onGenerate} 
+            disabled={isLoading || (!code.trim() && !isFolderUploaded) || (code.trim() && !isAnalyzingFolder && !isAnalyzingSinglePastedFile && !isDisplayingSelectedFile) } 
+            className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground"
+          >
             {isLoading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -184,7 +209,7 @@ export function CodeEditor({ code, setCode, onGenerate, isLoading, highlightedTe
             Generate Diagram
           </Button>
         </div>
-        {highlightedTerm && (
+        {highlightedTerm && !isDisplayingSelectedFile && (
           <div className="mt-2 p-2 border border-dashed border-accent rounded-md bg-accent/10">
             <p className="text-sm text-accent-foreground font-medium">
               <span className="font-semibold">Inspecting in diagram:</span> <span className="font-code bg-background px-1 rounded">{highlightedTerm}</span>
@@ -195,3 +220,4 @@ export function CodeEditor({ code, setCode, onGenerate, isLoading, highlightedTe
     </Card>
   );
 }
+
