@@ -6,7 +6,7 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface MermaidViewerProps {
@@ -31,12 +31,38 @@ export function MermaidViewer({
   const diagramContainerRef = useRef<HTMLDivElement>(null);
   const [isDiagramLoaded, setIsDiagramLoaded] = useState(false);
   const [internalError, setInternalError] = useState<string | null>(null);
+  const [mermaidInitialized, setMermaidInitialized] = useState(false);
 
 
   useEffect(() => {
+    if (mermaidInitialized) return;
+
+    const getResolvedColor = (variableName: string, fallback: string): string => {
+      if (typeof window !== 'undefined') {
+        const value = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+        if (value) {
+          // Check if it's already a full hsl/rgb string or hex
+          if (value.startsWith('hsl(') || value.startsWith('rgb(') || value.startsWith('#')) {
+            return value;
+          }
+          // Assuming it's HSL components like "271 100% 25%"
+          return `hsl(${value})`;
+        }
+      }
+      return fallback;
+    };
+
+    const primaryColor = getResolvedColor('--primary', '#4B0082'); // Fallback to Indigo
+    const backgroundColor = getResolvedColor('--background', '#F5F5F5'); // Fallback to light grey
+    const foregroundColor = getResolvedColor('--foreground', '#0A0A0A'); // Fallback to dark text
+    const accentColor = getResolvedColor('--accent', '#EE82EE'); // Fallback to bright violet
+    const cardColor = getResolvedColor('--card', '#FFFFFF'); // Fallback to white
+    const primaryBorderColor = primaryColor; 
+    const lineColor = primaryColor;
+
     mermaid.initialize({
       startOnLoad: false,
-      theme: 'neutral',
+      theme: 'neutral', // 'neutral' or 'base' are good starting points with themeVariables
       securityLevel: 'loose',
       dompurifyConfig: {
         USE_PROFILES: { svg: true, svgFilters: true },
@@ -46,28 +72,39 @@ export function MermaidViewer({
       flowchart: {
         nodeSpacing: 60,
         rankSpacing: 60,
-        htmlLabels: false, // Changed from true to false
+        htmlLabels: false, // Keep this false for simplicity with AI output
       },
       themeVariables: {
-        primaryColor: 'hsl(var(--background))', // Using background for shapes
-        primaryTextColor: 'hsl(var(--foreground))',
-        primaryBorderColor: 'hsl(var(--primary))', // Primary for borders
-        lineColor: 'hsl(var(--primary))',
-        secondaryColor: 'hsl(var(--accent))', // Accent for highlights or secondary elements
-        tertiaryColor: 'hsl(var(--card))', // Card for e.g. cluster backgrounds
+        primaryColor: backgroundColor, 
+        primaryTextColor: foregroundColor,
+        primaryBorderColor: primaryBorderColor,
+        lineColor: lineColor,
+        secondaryColor: accentColor, 
+        tertiaryColor: cardColor, 
         fontSize: '14px',
-        // Ensure colors match the theme in globals.css
-        background: 'hsl(var(--background))', 
-        mainBkg: 'hsl(var(--accent))', // Example: map an accent color
-        textColor: 'hsl(var(--foreground))',
-        // You might need to map more variables depending on the diagram types and theme used
+        background: backgroundColor,
+        mainBkg: accentColor, // Often used for highlighted elements or specific node types
+        textColor: foregroundColor,
+        // Mermaid specific theme variables that might need mapping:
+        nodeBorder: primaryBorderColor,
+        clusterBkg: getResolvedColor('--card', '#FFFFFF'), // card color slightly adjusted
+        clusterBorder: primaryBorderColor,
+        defaultLinkColor: lineColor,
+        titleColor: foregroundColor,
+        edgeLabelBackground: backgroundColor,
+        
+        // Colors for specific node states if needed
+        // colorیان: '#FF0000', // Example
       }
     });
-  }, []);
+    setMermaidInitialized(true);
+  }, [mermaidInitialized]);
 
   useEffect(() => {
+    if (!mermaidInitialized) return; // Don't render if mermaid isn't initialized
+
     let isMounted = true;
-    setInternalError(null); // Clear previous internal errors on new syntax
+    setInternalError(null); 
 
     const renderFn = async () => {
       if (!diagramContainerRef.current && mermaidSyntax) {
@@ -93,7 +130,6 @@ export function MermaidViewer({
       }
 
       try {
-        // Clear previous content specifically
         const container = diagramContainerRef.current;
         while (container.firstChild) {
           container.removeChild(container.firstChild);
@@ -115,8 +151,8 @@ export function MermaidViewer({
 
         const nodes = diagramContainerRef.current.querySelectorAll('g.node');
         nodes.forEach(nodeEl => {
-          const rectOrMainShape = nodeEl.querySelector('rect, circle, polygon, ellipse, path.node-shape, .label-container'); // Include .label-container for some diagram types
-          const textEl = nodeEl.querySelector('.nodeLabel, text, tspan, .edgeLabel, foreignObject div'); // Broader selection for text
+          const rectOrMainShape = nodeEl.querySelector('rect, circle, polygon, ellipse, path.node-shape, .label-container'); 
+          const textEl = nodeEl.querySelector('.nodeLabel, text, tspan, .edgeLabel, foreignObject div'); 
           
           if (rectOrMainShape && textEl) {
             const nodeTextContent = textEl.textContent?.trim() || null;
@@ -144,21 +180,26 @@ export function MermaidViewer({
           setInternalError(`MermaidLib Error: ${e.message || 'Unknown Mermaid rendering error'}`);
           setMermaidSvgElement(null);
           setIsDiagramLoaded(false);
-           if (diagramContainerRef.current) { // Clear container on error too
-             diagramContainerRef.current.innerHTML = '';
+           if (diagramContainerRef.current) { 
+             diagramContainerRef.current.innerHTML = '<p class="text-destructive-foreground">Error rendering diagram. Check console.</p>';
            }
         }
       }
     };
 
-    if (mermaidSyntax) { // Only attempt render if there's syntax
+    if (mermaidSyntax) { 
       renderFn();
+    } else { // If no syntax, ensure the container is cleared and state is reset
+        if (diagramContainerRef.current) {
+            diagramContainerRef.current.innerHTML = '';
+        }
+        setMermaidSvgElement(null);
+        setIsDiagramLoaded(false);
     }
     
 
     return () => {
       isMounted = false;
-      // Cleanup: remove click handlers if any were attached outside of React's lifecycle
       if (diagramContainerRef.current) {
         const nodes = diagramContainerRef.current.querySelectorAll('g.node');
         nodes.forEach(nodeEl => {
@@ -170,13 +211,18 @@ export function MermaidViewer({
         });
       }
     };
-  }, [mermaidSyntax, setMermaidSvgElement, setHighlightedNodeText]);
+  }, [mermaidSyntax, setMermaidSvgElement, setHighlightedNodeText, mermaidInitialized]);
 
 
   useEffect(() => {
     const svgToUpdate = getMermaidSvgElement();
-    if (svgToUpdate) {
+    if (svgToUpdate && mermaidInitialized) { // Only update if mermaid is initialized
       const allNodes = svgToUpdate.querySelectorAll('g.node');
+      
+      const resolvedAccentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      const resolvedPrimaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+      const resolvedAccentFgColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-foreground').trim();
+
       allNodes.forEach(nodeEl => {
         const rectOrMainShape = nodeEl.querySelector('rect, circle, polygon, ellipse, path.node-shape, .label-container');
         const textEl = nodeEl.querySelector('.nodeLabel, text, tspan, .edgeLabel, foreignObject div');
@@ -185,29 +231,27 @@ export function MermaidViewer({
           const nodeTextContent = textEl.textContent?.trim();
           const isHighlighted = nodeTextContent && nodeTextContent === highlightedNodeText;
           
-          // Reset styles first
           (rectOrMainShape as SVGElement).style.fill = ''; 
           (rectOrMainShape as SVGElement).style.stroke = '';
           (rectOrMainShape as SVGElement).style.strokeWidth = '';
 
-          // Attempt to reset text fill as well, though it might be complex if specific classes override
           const textElements = nodeEl.querySelectorAll('.nodeLabel, text, tspan');
           textElements.forEach(txt => {
             (txt as SVGElement).style.fill = '';
           });
 
           if (isHighlighted) {
-            (rectOrMainShape as SVGElement).style.fill = 'hsl(var(--accent))';
-            (rectOrMainShape as SVGElement).style.stroke = 'hsl(var(--primary))';
+            (rectOrMainShape as SVGElement).style.fill = `hsl(${resolvedAccentColor})`;
+            (rectOrMainShape as SVGElement).style.stroke = `hsl(${resolvedPrimaryColor})`;
             (rectOrMainShape as SVGElement).style.strokeWidth = '3px';
-            textElements.forEach(txt => { // Ensure text is readable on highlight
-                (txt as SVGElement).style.fill = 'hsl(var(--accent-foreground))';
+            textElements.forEach(txt => { 
+                (txt as SVGElement).style.fill = `hsl(${resolvedAccentFgColor})`;
             });
           }
         }
       });
     }
-  }, [highlightedNodeText, getMermaidSvgElement]);
+  }, [highlightedNodeText, getMermaidSvgElement, mermaidInitialized]);
 
   const displayError = error || internalError;
 
@@ -242,7 +286,7 @@ export function MermaidViewer({
         
         {!isLoading && !displayError && mermaidSyntax && (
           <>
-            {!isDiagramLoaded && (
+            {(!isDiagramLoaded || !mermaidInitialized) && ( // Show skeleton if diagram not loaded OR mermaid not init
               <div className="w-full h-full flex items-center justify-center">
                   <Skeleton className="w-full h-[calc(100%-2rem)] rounded-md" />
               </div>
@@ -250,9 +294,9 @@ export function MermaidViewer({
             <div
               ref={diagramContainerRef}
               id="mermaid-diagram-container"
-              className={`w-full h-full min-h-[300px] transition-opacity duration-300 ${isDiagramLoaded ? 'opacity-100' : 'opacity-0'}`}
+              className={`w-full h-full min-h-[300px] transition-opacity duration-300 ${isDiagramLoaded && mermaidInitialized ? 'opacity-100' : 'opacity-0'}`}
               aria-live="polite"
-              style={{ visibility: isDiagramLoaded ? 'visible' : 'hidden' }} 
+              style={{ visibility: (isDiagramLoaded && mermaidInitialized) ? 'visible' : 'hidden' }} 
             />
           </>
         )}
@@ -261,22 +305,8 @@ export function MermaidViewer({
   );
 }
 
-function Loader2(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
-  )
-}
+// Loader2 component was removed from here as it's imported from lucide-react
+// If it's a custom component, ensure it's defined or imported correctly.
+// Assuming Loader2 from lucide-react is intended:
+// import { Loader2 } from 'lucide-react';
 
