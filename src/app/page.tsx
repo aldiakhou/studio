@@ -15,8 +15,8 @@ interface UploadedFile {
   content: string;
 }
 
-const MAX_RETRIES = 2; // Max number of retries (e.g., 2 retries means 3 total attempts)
-const RETRY_DELAY_MS = 3000; // Delay between retries in milliseconds
+const MAX_RETRIES = 2; 
+const RETRY_DELAY_MS = 3000; 
 
 export default function CodeFlowPage() {
   const [code, setCode] = useState<string>('');
@@ -39,14 +39,14 @@ export default function CodeFlowPage() {
     setUploadedFolderFiles(files);
     if (files && files.length > 0) {
       setCode(`Folder uploaded: ${files.length} file${files.length > 1 ? 's' : ''} ready for analysis.\n\n${files.slice(0, 5).map(f => `- ${f.path}`).join('\n')}${files.length > 5 ? '\n...' : ''}`);
-    } else if (code.startsWith("Folder uploaded:")) { // Clear message if folder is deselected or single file loaded
+    } else if (code.startsWith("Folder uploaded:")) { 
       setCode("");
     }
   };
 
   const handleCodeChange = (newCode: string) => {
     setCode(newCode);
-    if (uploadedFolderFiles) { // If user types in editor, assume they are switching from folder to single code input
+    if (uploadedFolderFiles) { 
       setUploadedFolderFiles(null);
     }
   }
@@ -74,7 +74,7 @@ export default function CodeFlowPage() {
 
     let attempts = 0;
     let operationSuccessful = false;
-    let lastError: any = null;
+    let lastError: Error | null = null;
 
     while (attempts <= MAX_RETRIES && !operationSuccessful) {
       try {
@@ -86,35 +86,38 @@ export default function CodeFlowPage() {
 
           if (isRetryable && attempts < MAX_RETRIES) {
             attempts++;
-            lastError = new Error(errorMessage);
+            lastError = new Error(errorMessage); 
             toast({
               title: `Attempt ${attempts} Failed (Model Overloaded)`,
               description: `Retrying in ${RETRY_DELAY_MS / 1000}s... (Attempt ${attempts + 1}/${MAX_RETRIES + 1})`,
               variant: 'default',
             });
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-            continue; // Next attempt
+            continue; 
+          } else { 
+            lastError = new Error(errorMessage);
+            operationSuccessful = false; 
+            break; 
           }
-          throw new Error(errorMessage); // Non-retryable error or max retries reached
-        }
-
-        if (result.mermaidDiagram) {
+        } else if (result.mermaidDiagram) {
           setMermaidSyntax(result.mermaidDiagram);
           toast({
             title: 'Diagram Generated',
             description: 'Mermaid diagram successfully created.',
           });
           operationSuccessful = true;
-          lastError = null; // Clear error on success
-        } else {
-          throw new Error('AI did not return a diagram. Try modifying your input or prompt.');
+          lastError = null; 
+        } else { 
+          lastError = new Error('AI did not return a diagram. Try modifying your input or prompt.');
+          operationSuccessful = false;
+          break; 
         }
-      } catch (e: any) {
-        lastError = e;
-        const message = e.message || 'An unknown error occurred.';
-        const isRetryable = (message.includes('503') || message.toLowerCase().includes('overloaded') || message.toLowerCase().includes('try again later'));
+      } catch (e: any) { 
+        lastError = e instanceof Error ? e : new Error(String(e.message || e)); 
+        const message = lastError.message || 'An unknown error occurred.';
+        const isRetryableDirectError = (message.includes('503') || message.toLowerCase().includes('overloaded') || message.toLowerCase().includes('try again later'));
 
-        if (isRetryable && attempts < MAX_RETRIES) {
+        if (isRetryableDirectError && attempts < MAX_RETRIES) {
           attempts++;
           toast({
             title: `Attempt ${attempts} Failed (Service Unavailable)`,
@@ -122,10 +125,10 @@ export default function CodeFlowPage() {
             variant: 'default',
           });
           await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-          continue; // Next attempt
+          continue; 
         }
-        // Non-retryable error or max retries reached from direct exception
-        break; // Exit loop, will be handled by final error check
+        operationSuccessful = false;
+        break; 
       }
     }
 
