@@ -30,6 +30,8 @@ export function MermaidViewer({
 }: MermaidViewerProps) {
   const diagramContainerRef = useRef<HTMLDivElement>(null);
   const [isDiagramLoaded, setIsDiagramLoaded] = useState(false);
+  const [internalError, setInternalError] = useState<string | null>(null);
+
 
   useEffect(() => {
     mermaid.initialize({
@@ -44,34 +46,37 @@ export function MermaidViewer({
       flowchart: {
         nodeSpacing: 60,
         rankSpacing: 60,
-        htmlLabels: true,
+        htmlLabels: false, // Changed from true to false
       },
       themeVariables: {
-        primaryColor: '#F5F5F5',
-        primaryTextColor: '#0A0A0A',
-        primaryBorderColor: '#4B0082',
-        lineColor: '#4B0082',
-        secondaryColor: '#EE82EE',
-        tertiaryColor: '#FFFFFF',
+        primaryColor: 'hsl(var(--background))', // Using background for shapes
+        primaryTextColor: 'hsl(var(--foreground))',
+        primaryBorderColor: 'hsl(var(--primary))', // Primary for borders
+        lineColor: 'hsl(var(--primary))',
+        secondaryColor: 'hsl(var(--accent))', // Accent for highlights or secondary elements
+        tertiaryColor: 'hsl(var(--card))', // Card for e.g. cluster backgrounds
         fontSize: '14px',
+        // Ensure colors match the theme in globals.css
+        background: 'hsl(var(--background))', 
+        mainBkg: 'hsl(var(--accent))', // Example: map an accent color
+        textColor: 'hsl(var(--foreground))',
+        // You might need to map more variables depending on the diagram types and theme used
       }
     });
   }, []);
 
   useEffect(() => {
     let isMounted = true;
+    setInternalError(null); // Clear previous internal errors on new syntax
 
     const renderFn = async () => {
       if (!diagramContainerRef.current && mermaidSyntax) {
-        // Ref might not be available immediately if div is conditionally rendered.
-        // Wait for next render cycle if necessary, or ensure div exists when syntax is present.
-        // For now, if ref is null, we can't proceed.
         return;
       }
       
       if (!mermaidSyntax) {
         if (diagramContainerRef.current) {
-            diagramContainerRef.current.innerHTML = ''; // Clear if syntax becomes null
+            diagramContainerRef.current.innerHTML = ''; 
         }
         if (isMounted) {
             setMermaidSvgElement(null);
@@ -80,8 +85,7 @@ export function MermaidViewer({
         return;
       }
 
-      // At this point, mermaidSyntax is present. We expect diagramContainerRef.current to be valid.
-      if (!diagramContainerRef.current) return; // Guard if somehow still null
+      if (!diagramContainerRef.current) return; 
 
       if (isMounted) {
         setIsDiagramLoaded(false);
@@ -89,7 +93,12 @@ export function MermaidViewer({
       }
 
       try {
-        diagramContainerRef.current.innerHTML = ''; // Clear before new render
+        // Clear previous content specifically
+        const container = diagramContainerRef.current;
+        while (container.firstChild) {
+          container.removeChild(container.firstChild);
+        }
+        
         const { svg, bindFunctions } = await mermaid.render('mermaid-diagram-svg', mermaidSyntax);
 
         if (!isMounted || !diagramContainerRef.current) return;
@@ -106,8 +115,8 @@ export function MermaidViewer({
 
         const nodes = diagramContainerRef.current.querySelectorAll('g.node');
         nodes.forEach(nodeEl => {
-          const rectOrMainShape = nodeEl.querySelector('rect, circle, polygon, ellipse, path.node-shape');
-          const textEl = nodeEl.querySelector('.nodeLabel, text, tspan');
+          const rectOrMainShape = nodeEl.querySelector('rect, circle, polygon, ellipse, path.node-shape, .label-container'); // Include .label-container for some diagram types
+          const textEl = nodeEl.querySelector('.nodeLabel, text, tspan, .edgeLabel, foreignObject div'); // Broader selection for text
           
           if (rectOrMainShape && textEl) {
             const nodeTextContent = textEl.textContent?.trim() || null;
@@ -131,20 +140,35 @@ export function MermaidViewer({
         }
       } catch (e: any) {
         console.error('Mermaid rendering error:', e);
-        if (isMounted && diagramContainerRef.current) {
-          diagramContainerRef.current.innerHTML = `<p class="text-destructive">Error rendering diagram: ${e.message || 'Unknown error'}</p>`;
-        }
         if (isMounted) {
+          setInternalError(`MermaidLib Error: ${e.message || 'Unknown Mermaid rendering error'}`);
           setMermaidSvgElement(null);
           setIsDiagramLoaded(false);
+           if (diagramContainerRef.current) { // Clear container on error too
+             diagramContainerRef.current.innerHTML = '';
+           }
         }
       }
     };
 
-    renderFn();
+    if (mermaidSyntax) { // Only attempt render if there's syntax
+      renderFn();
+    }
+    
 
     return () => {
       isMounted = false;
+      // Cleanup: remove click handlers if any were attached outside of React's lifecycle
+      if (diagramContainerRef.current) {
+        const nodes = diagramContainerRef.current.querySelectorAll('g.node');
+        nodes.forEach(nodeEl => {
+          const rectOrMainShape = nodeEl.querySelector('rect, circle, polygon, ellipse, path.node-shape, .label-container');
+          if (rectOrMainShape && (rectOrMainShape as any)._clickHandler) {
+            rectOrMainShape.removeEventListener('click', (rectOrMainShape as any)._clickHandler);
+            delete (rectOrMainShape as any)._clickHandler;
+          }
+        });
+      }
     };
   }, [mermaidSyntax, setMermaidSvgElement, setHighlightedNodeText]);
 
@@ -154,33 +178,44 @@ export function MermaidViewer({
     if (svgToUpdate) {
       const allNodes = svgToUpdate.querySelectorAll('g.node');
       allNodes.forEach(nodeEl => {
-        const rectOrMainShape = nodeEl.querySelector('rect, circle, polygon, ellipse, path.node-shape');
-        const textEl = nodeEl.querySelector('.nodeLabel, text, tspan');
+        const rectOrMainShape = nodeEl.querySelector('rect, circle, polygon, ellipse, path.node-shape, .label-container');
+        const textEl = nodeEl.querySelector('.nodeLabel, text, tspan, .edgeLabel, foreignObject div');
         
         if (rectOrMainShape && textEl) {
           const nodeTextContent = textEl.textContent?.trim();
           const isHighlighted = nodeTextContent && nodeTextContent === highlightedNodeText;
           
-          (rectOrMainShape as SVGElement).style.fill = '';
+          // Reset styles first
+          (rectOrMainShape as SVGElement).style.fill = ''; 
           (rectOrMainShape as SVGElement).style.stroke = '';
           (rectOrMainShape as SVGElement).style.strokeWidth = '';
+
+          // Attempt to reset text fill as well, though it might be complex if specific classes override
+          const textElements = nodeEl.querySelectorAll('.nodeLabel, text, tspan');
+          textElements.forEach(txt => {
+            (txt as SVGElement).style.fill = '';
+          });
 
           if (isHighlighted) {
             (rectOrMainShape as SVGElement).style.fill = 'hsl(var(--accent))';
             (rectOrMainShape as SVGElement).style.stroke = 'hsl(var(--primary))';
             (rectOrMainShape as SVGElement).style.strokeWidth = '3px';
+            textElements.forEach(txt => { // Ensure text is readable on highlight
+                (txt as SVGElement).style.fill = 'hsl(var(--accent-foreground))';
+            });
           }
         }
       });
     }
   }, [highlightedNodeText, getMermaidSvgElement]);
 
+  const displayError = error || internalError;
 
   return (
     <Card className="h-full flex flex-col shadow-lg rounded-lg overflow-hidden">
       <CardHeader>
         <CardTitle className="font-headline text-xl">Diagram View</CardTitle>
-        <CardDescription>Visual representation of your code.</CardDescription>
+        <CardDescription>Visual representation of your code. Click nodes to highlight.</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow flex items-center justify-center bg-card relative p-2 sm:p-4">
         {isLoading && (
@@ -190,42 +225,35 @@ export function MermaidViewer({
           </div>
         )}
         
-        {!isLoading && error && (
+        {!isLoading && displayError && (
            <Alert variant="destructive" className="w-full max-w-md">
              <AlertCircle className="h-4 w-4" />
-             <AlertTitle>Error</AlertTitle>
-             <AlertDescription>{error}</AlertDescription>
+             <AlertTitle>Error Rendering Diagram</AlertTitle>
+             <AlertDescription>{displayError}</AlertDescription>
            </Alert>
         )}
 
-        {!isLoading && !error && !mermaidSyntax && (
+        {!isLoading && !displayError && !mermaidSyntax && (
           <div className="text-center text-muted-foreground">
             <p className="text-lg">Generate a diagram to see it here.</p>
-            <p className="text-sm">Input your code and click "Generate Diagram".</p>
+            <p className="text-sm">Input your code or upload a folder and click "Generate Diagram".</p>
           </div>
         )}
-
-        {/* Container for Skeleton (if shown) and Mermaid diagram div */}
-        {!isLoading && !error && mermaidSyntax && (
+        
+        {!isLoading && !displayError && mermaidSyntax && (
           <>
-            {/* Skeleton shown while mermaid.js is actually processing the syntax */}
             {!isDiagramLoaded && (
               <div className="w-full h-full flex items-center justify-center">
                   <Skeleton className="w-full h-[calc(100%-2rem)] rounded-md" />
               </div>
             )}
-            {/* Actual Mermaid container div.
-                It's present in the DOM if syntax is available, and visibility is toggled by opacity.
-                Crucially, it has NO React-rendered children. */}
             <div
               ref={diagramContainerRef}
               id="mermaid-diagram-container"
-              className={`w-full h-full min-h-[300px] transition-opacity duration-500 ${isDiagramLoaded ? 'opacity-100' : 'opacity-0'}`}
+              className={`w-full h-full min-h-[300px] transition-opacity duration-300 ${isDiagramLoaded ? 'opacity-100' : 'opacity-0'}`}
               aria-live="polite"
-              style={{ display: (!isLoading && !error && mermaidSyntax) ? 'block' : 'none' }} // Ensures div exists for ref if syntax is present
-            >
-              {/* Mermaid diagram will be rendered here by direct DOM manipulation */}
-            </div>
+              style={{ visibility: isDiagramLoaded ? 'visible' : 'hidden' }} 
+            />
           </>
         )}
       </CardContent>
@@ -233,7 +261,6 @@ export function MermaidViewer({
   );
 }
 
-// Loader component
 function Loader2(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -252,3 +279,4 @@ function Loader2(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
