@@ -55,8 +55,8 @@ Your diagram should include:
 Guidelines for the diagram:
 -   **Clarity and Readability:** While detail is requested, the diagram must remain understandable. Avoid excessive clutter. Make smart choices about what is "important" to display.
 -   **Mermaid Syntax:** Use valid Mermaid syntax (e.g., \`graph TD;\` or \`graph LR;\`).
-    *   **Node IDs and Labels:** If node IDs or display text (labels) contain spaces, special characters (like ':', '(', ')', '[', ']', '{', '}', '-', '>'), or Mermaid keywords, they **MUST** be enclosed in double quotes (e.g., \`A["Node Text: (Special Details)"] --> B["Another Node"];\`). For example, if a node represents a file path like \`src/components/button.tsx\`, its ID and label should be quoted: \`"src/components/button.tsx"\`. If it represents a function call like \`MyClass.getUser(id: string): User\`, it should be quoted like \`"MyClass.getUser(id: string): User"\`.
-    *   Avoid using characters that could break Mermaid syntax within unquoted node text or IDs.
+    *   **Node IDs and Labels:** If node IDs or display text (labels) contain spaces, special characters (like ':', '(', ')', '[', ']', '{', '}', '-', '>', '/'), or Mermaid keywords, they **MUST** be enclosed in double quotes (e.g., \`A["Node Text: (Special Details)"] --> B["Another Node"];\`). For example, if a node represents a file path like \`src/components/button.tsx\`, its ID and label should be quoted: \`"src/components/button.tsx"\`. If it represents a function call like \`MyClass.getUser(id: string): User\`, it should be quoted like \`"MyClass.getUser(id: string): User"\`.
+    *   Avoid using characters that could break Mermaid syntax within unquoted node text or IDs. For characters within quoted strings that Mermaid might misinterpret (like internal quotes), ensure they are appropriately handled or simplified if complex escaping is not feasible for the AI.
     *   Ensure all connections (\`-->\`, \`---\`, etc.) are correctly formatted.
 -   **Focus:** The goal is to understand the project's components and how they interact.
 -   **Conciseness:** Be concise in labels, especially for parameters and return types.
@@ -91,6 +91,10 @@ const generateMermaidDiagramFlow = ai.defineFlow(
     const {output} = await generateMermaidDiagramPrompt(input);
     if (!output?.mermaidDiagram) {
       throw new Error("AI failed to generate a Mermaid diagram. The output was empty or invalid.");
+    }
+    // Basic check for common Mermaid syntax start
+    if (!output.mermaidDiagram.trim().match(/^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|journey|requirementDiagram|C4Context|mindmap)/i)) {
+        throw new Error("Generated diagram does not start with a valid Mermaid graph type (e.g., graph TD, flowchart LR).");
     }
     return output;
   }
