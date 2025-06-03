@@ -50,11 +50,14 @@ Your diagram should include:
     *   Class inheritance or implementation.
     *   Instantiation of classes.
     *   Import/export dependencies between files/modules.
-4.  **Node Naming for Interactivity:** Ensure node labels are descriptive and specific (e.g., \`file.ts/MyClass\`, \`utils.js/formatDate()\`). Make class methods or functions part of the node label itself or closely associated if that makes the diagram clearer. If a node represents a function, its label should ideally be the function signature. If it's a class, its label could be the class name, potentially with key methods.
+4.  **Node Naming for Interactivity:** Ensure node labels are descriptive and specific (e.g., \`"file.ts/MyClass"\`, \`"utils.js/formatDate()"\`). Make class methods or functions part of the node label itself or closely associated if that makes the diagram clearer. If a node represents a function, its label should ideally be the function signature. If it's a class, its label could be the class name, potentially with key methods.
 
 Guidelines for the diagram:
 -   **Clarity and Readability:** While detail is requested, the diagram must remain understandable. Avoid excessive clutter. Make smart choices about what is "important" to display.
--   **Mermaid Syntax:** Use valid Mermaid syntax (e.g., \`graph TD;\` or \`graph LR;\`). For classes, you can use the classDiagram syntax if appropriate, or represent them as nodes in a flowchart with detailed labels. Flowcharts are generally more flexible for mixed element types.
+-   **Mermaid Syntax:** Use valid Mermaid syntax (e.g., \`graph TD;\` or \`graph LR;\`).
+    *   **Node IDs and Labels:** If node IDs or display text (labels) contain spaces, special characters (like ':', '(', ')', '[', ']', '{', '}', '-', '>'), or Mermaid keywords, they **MUST** be enclosed in double quotes (e.g., \`A["Node Text: (Special Details)"] --> B["Another Node"];\`). For example, if a node represents a file path like \`src/components/button.tsx\`, its ID and label should be quoted: \`"src/components/button.tsx"\`. If it represents a function call like \`MyClass.getUser(id: string): User\`, it should be quoted like \`"MyClass.getUser(id: string): User"\`.
+    *   Avoid using characters that could break Mermaid syntax within unquoted node text or IDs.
+    *   Ensure all connections (\`-->\`, \`---\`, etc.) are correctly formatted.
 -   **Focus:** The goal is to understand the project's components and how they interact.
 -   **Conciseness:** Be concise in labels, especially for parameters and return types.
 
