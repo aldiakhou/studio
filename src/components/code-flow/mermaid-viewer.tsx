@@ -35,80 +35,89 @@ export function MermaidViewer({
 
 
   useEffect(() => {
-    if (mermaidInitialized) return;
+    if (typeof window === 'undefined' || mermaidInitialized) return;
 
     const getResolvedColor = (variableName: string, fallback: string): string => {
-      if (typeof window !== 'undefined') {
-        const value = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
-        if (value) {
-          if (value.startsWith('hsl(') || value.startsWith('rgb(') || value.startsWith('#')) {
-            return value;
-          }
-          return `hsl(${value})`;
+      const style = getComputedStyle(document.documentElement);
+      const value = style.getPropertyValue(variableName).trim();
+      if (value) {
+        // Check if it's already a direct color value (hex, rgb, hsl)
+        if (value.startsWith('#') || value.startsWith('rgb') || value.startsWith('hsl')) {
+          return value;
+        }
+        // Assuming HSL parts if it's not a direct color
+        const hslParts = value.split(' ').map(s => s.trim().replace('%', ''));
+        if (hslParts.length === 3) {
+          return `hsl(${hslParts[0]}, ${hslParts[1]}%, ${hslParts[2]}%)`;
         }
       }
       return fallback;
     };
 
-    const primaryColor = getResolvedColor('--primary', '#4B0082'); 
-    const backgroundColor = getResolvedColor('--background', '#F5F5F5'); 
-    const foregroundColor = getResolvedColor('--foreground', '#0A0A0A'); 
-    const accentColor = getResolvedColor('--accent', '#EE82EE'); 
-    const cardColor = getResolvedColor('--card', '#FFFFFF'); 
-    const primaryBorderColor = primaryColor; 
-    const lineColor = primaryColor;
+    try {
+      const primaryColor = getResolvedColor('--primary', '#4B0082');
+      const backgroundColor = getResolvedColor('--background', '#F5F5F5');
+      const foregroundColor = getResolvedColor('--foreground', '#0A0A0A');
+      const accentColor = getResolvedColor('--accent', '#EE82EE');
+      const cardColor = getResolvedColor('--card', '#FFFFFF');
+      const primaryBorderColor = getResolvedColor('--border', primaryColor); // Use border or fallback to primary
+      const lineColor = primaryColor;
 
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: 'neutral',
-      securityLevel: 'loose',
-      dompurifyConfig: {
-        USE_PROFILES: { svg: true, svgFilters: true },
-        ADD_TAGS: ['foreignobject'],
-        ADD_ATTR: ['style', 'id', 'class'],
-      },
-      flowchart: {
-        nodeSpacing: 60,
-        rankSpacing: 60,
-        htmlLabels: false, 
-        useMaxWidth: false, // Allow diagram to use natural width
-      },
-      themeVariables: {
-        primaryColor: backgroundColor, 
-        primaryTextColor: foregroundColor,
-        primaryBorderColor: primaryBorderColor,
-        lineColor: lineColor,
-        secondaryColor: accentColor, 
-        tertiaryColor: cardColor, 
-        fontSize: '14px',
-        background: backgroundColor,
-        mainBkg: accentColor, 
-        textColor: foregroundColor,
-        nodeBorder: primaryBorderColor,
-        clusterBkg: getResolvedColor('--card', '#FFFFFF'), 
-        clusterBorder: primaryBorderColor,
-        defaultLinkColor: lineColor,
-        titleColor: foregroundColor,
-        edgeLabelBackground: backgroundColor,
-      }
-    });
-    setMermaidInitialized(true);
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'neutral',
+        securityLevel: 'loose',
+        dompurifyConfig: {
+          USE_PROFILES: { svg: true, svgFilters: true },
+          ADD_TAGS: ['foreignobject'],
+          ADD_ATTR: ['style', 'id', 'class'],
+        },
+        flowchart: {
+          nodeSpacing: 70, // Increased
+          rankSpacing: 70, // Increased
+          htmlLabels: false,
+          useMaxWidth: false,
+        },
+        themeVariables: {
+          primaryColor: backgroundColor,
+          primaryTextColor: foregroundColor,
+          primaryBorderColor: primaryBorderColor,
+          lineColor: lineColor,
+          secondaryColor: accentColor,
+          tertiaryColor: cardColor,
+          fontSize: '16px', // Increased
+          background: backgroundColor,
+          mainBkg: accentColor,
+          textColor: foregroundColor,
+          nodeBorder: primaryBorderColor,
+          clusterBkg: cardColor,
+          clusterBorder: primaryBorderColor,
+          defaultLinkColor: lineColor,
+          titleColor: foregroundColor,
+          edgeLabelBackground: backgroundColor,
+        }
+      });
+      setMermaidInitialized(true);
+    } catch (e: any) {
+       console.error("Mermaid initialization error:", e);
+       setInternalError(`Mermaid Init Error: ${e.message}`);
+    }
   }, [mermaidInitialized]);
 
   useEffect(() => {
-    if (!mermaidInitialized) return; 
+    if (!mermaidInitialized) return;
 
     let isMounted = true;
-    setInternalError(null); 
+    setInternalError(null);
 
     const renderFn = async () => {
       if (!diagramContainerRef.current && mermaidSyntax) {
         return;
       }
-      
+
       if (!mermaidSyntax) {
         if (diagramContainerRef.current) {
-            diagramContainerRef.current.innerHTML = ''; 
+            diagramContainerRef.current.innerHTML = '';
         }
         if (isMounted) {
             setMermaidSvgElement(null);
@@ -117,7 +126,7 @@ export function MermaidViewer({
         return;
       }
 
-      if (!diagramContainerRef.current) return; 
+      if (!diagramContainerRef.current) return;
 
       if (isMounted) {
         setIsDiagramLoaded(false);
@@ -126,66 +135,49 @@ export function MermaidViewer({
 
       try {
         const container = diagramContainerRef.current;
-        while (container.firstChild) {
-          container.removeChild(container.firstChild);
-        }
-        
+        container.innerHTML = ''; // Clear previous diagram
+
         const { svg, bindFunctions } = await mermaid.render('mermaid-diagram-svg', mermaidSyntax);
 
         if (!isMounted || !diagramContainerRef.current) return;
 
         diagramContainerRef.current.innerHTML = svg;
         const svgElement = diagramContainerRef.current.querySelector('svg');
-        if (svgElement) {
-            // Mermaid often sets width="100%". If fixed pixel width/height are present,
-            // removing them can help CSS take control for responsive scaling.
-            // However, viewBox is usually sufficient.
-            // svgElement.removeAttribute('width');
-            // svgElement.removeAttribute('height');
-        }
 
-
-        if (bindFunctions) {
-          bindFunctions(diagramContainerRef.current);
-        }
-        
         if (isMounted) {
           setMermaidSvgElement(svgElement as SVGElement | null);
         }
 
-        // Attach click handlers to nodes and subgraph titles
-        const interactiveElements = diagramContainerRef.current.querySelectorAll('g.node, g.cluster .cluster-title, g.cluster > rect');
+        if (bindFunctions) {
+          bindFunctions(diagramContainerRef.current);
+        }
 
+        const interactiveElements = diagramContainerRef.current.querySelectorAll('g.node, g.cluster .cluster-title, g.cluster > rect');
         interactiveElements.forEach(el => {
-          const nodeElement = el.closest('.node, .cluster'); // Find the encompassing node or cluster
+          const nodeElement = el.closest('.node, .cluster');
           if (!nodeElement) return;
 
           let textContentElement = nodeElement.querySelector('.nodeLabel, .cluster-title tspan, .edgeLabel, foreignObject div');
-          
-          // If it's a cluster rect, the title is usually a sibling or nearby
           if (el.tagName.toLowerCase() === 'rect' && nodeElement.classList.contains('cluster')) {
              textContentElement = nodeElement.querySelector('.cluster-title tspan');
           }
-
 
           if (textContentElement) {
             const nodeTextContent = textContentElement.textContent?.trim() || null;
             if (nodeTextContent) {
               (el as HTMLElement).style.cursor = 'pointer';
-              
               const clickHandler = (event: Event) => {
-                event.stopPropagation(); // Prevent event from bubbling to parent elements if nested
+                event.stopPropagation();
                 if (isMounted) setHighlightedNodeText(nodeTextContent);
               };
-              
               const oldListener = (el as any)._clickHandler;
               if (oldListener) el.removeEventListener('click', oldListener);
-              
               el.addEventListener('click', clickHandler);
               (el as any)._clickHandler = clickHandler;
             }
           }
         });
+
         if (isMounted) {
           setIsDiagramLoaded(true);
         }
@@ -195,23 +187,24 @@ export function MermaidViewer({
           setInternalError(`MermaidLib Error: ${e.message || 'Unknown Mermaid rendering error'}`);
           setMermaidSvgElement(null);
           setIsDiagramLoaded(false);
-           if (diagramContainerRef.current) { 
-             diagramContainerRef.current.innerHTML = '<p class="text-destructive-foreground">Error rendering diagram. Check console.</p>';
+           if (diagramContainerRef.current) {
+             diagramContainerRef.current.innerHTML = `<p class="text-destructive p-4">Error rendering diagram. Details: ${e.message || 'Unknown'}</p>`;
            }
         }
       }
     };
 
-    if (mermaidSyntax) { 
+    if (mermaidSyntax) {
       renderFn();
-    } else { 
+    } else {
         if (diagramContainerRef.current) {
             diagramContainerRef.current.innerHTML = '';
         }
-        setMermaidSvgElement(null);
-        setIsDiagramLoaded(false);
+        if (isMounted) { // Ensure isMounted check
+          setMermaidSvgElement(null);
+          setIsDiagramLoaded(false);
+        }
     }
-    
 
     return () => {
       isMounted = false;
@@ -230,39 +223,51 @@ export function MermaidViewer({
 
   useEffect(() => {
     const svgToUpdate = getMermaidSvgElement();
-    if (svgToUpdate && mermaidInitialized) { 
+    if (svgToUpdate && mermaidInitialized && typeof window !== 'undefined') {
       const allElements = svgToUpdate.querySelectorAll('g.node, g.cluster');
+
+      const getResolvedColorForHighlight = (variableName: string, fallback: string): string => {
+          const style = getComputedStyle(document.documentElement);
+          const value = style.getPropertyValue(variableName).trim();
+          if (value) {
+            if (value.startsWith('#') || value.startsWith('rgb') || value.startsWith('hsl')) return value;
+            const hslParts = value.split(' ').map(s => s.trim().replace('%', ''));
+            if (hslParts.length === 3) return `hsl(${hslParts[0]}, ${hslParts[1]}%, ${hslParts[2]}%)`;
+          }
+          return fallback;
+      };
       
-      const resolvedAccentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-      const resolvedPrimaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
-      const resolvedAccentFgColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-foreground').trim();
-      const defaultNodeStroke = getComputedStyle(document.documentElement).getPropertyValue('--primary-border-color') || `hsl(${resolvedPrimaryColor})`; // Fallback
-      const defaultNodeFill = getComputedStyle(document.documentElement).getPropertyValue('--background') || 'transparent'; // Fallback
+      const resolvedAccentColor = getResolvedColorForHighlight('--accent', '#EE82EE');
+      const resolvedPrimaryColor = getResolvedColorForHighlight('--primary', '#4B0082');
+      const resolvedAccentFgColor = getResolvedColorForHighlight('--accent-foreground', '#000000');
+      const defaultNodeStroke = getResolvedColorForHighlight('--border', resolvedPrimaryColor);
+      const defaultNodeFill = getResolvedColorForHighlight('--card', 'transparent');
+      const defaultNodeTextColor = getResolvedColorForHighlight('--foreground', '#0A0A0A');
+
 
       allElements.forEach(el => {
         const mainShape = el.querySelector('rect, circle, polygon, ellipse, path.node-shape, .label-container');
-        const textElements = el.querySelectorAll('.nodeLabel, .cluster-title tspan, text, tspan');
+        const textElements = el.querySelectorAll('.nodeLabel, .cluster-title tspan, text, tspan, foreignObject div');
         let nodeTextContent : string | null = null;
 
         if (el.classList.contains('cluster')) {
             const titleTspan = el.querySelector('.cluster-title tspan');
             if (titleTspan) nodeTextContent = titleTspan.textContent?.trim() || null;
-        } else { // It's a node
+        } else {
             const nodeLabel = el.querySelector('.nodeLabel, foreignObject div');
             if (nodeLabel) nodeTextContent = nodeLabel.textContent?.trim() || null;
         }
         
+        const isHighlighted = nodeTextContent && nodeTextContent === highlightedNodeText;
+
         if (mainShape) {
-          const isHighlighted = nodeTextContent && nodeTextContent === highlightedNodeText;
-          
-          (mainShape as SVGElement).style.fill = isHighlighted ? `hsl(${resolvedAccentColor})` : defaultNodeFill; 
-          (mainShape as SVGElement).style.stroke = isHighlighted ? `hsl(${resolvedPrimaryColor})` : defaultNodeStroke;
-          (mainShape as SVGElement).style.strokeWidth = isHighlighted ? '3px' : '1px'; // Reset or set default
+          (mainShape as SVGElement).style.fill = isHighlighted ? resolvedAccentColor : defaultNodeFill;
+          (mainShape as SVGElement).style.stroke = isHighlighted ? resolvedPrimaryColor : defaultNodeStroke;
+          (mainShape as SVGElement).style.strokeWidth = isHighlighted ? '3px' : '1.5px';
         }
 
         textElements.forEach(txtEl => {
-          const isHighlighted = nodeTextContent && nodeTextContent === highlightedNodeText;
-          (txtEl as SVGElement).style.fill = isHighlighted ? `hsl(${resolvedAccentFgColor})` : ''; // Reset to default or mermaid applied
+          (txtEl as SVGElement).style.fill = isHighlighted ? resolvedAccentFgColor : defaultNodeTextColor;
         });
       });
     }
@@ -301,7 +306,7 @@ export function MermaidViewer({
         
         {!isLoading && !displayError && mermaidSyntax && (
           <>
-            {(!isDiagramLoaded || !mermaidInitialized) && ( 
+            {(!isDiagramLoaded || !mermaidInitialized) && !internalError && (
               <div className="w-full h-full flex items-center justify-center">
                   <Skeleton className="w-full h-[calc(100%-2rem)] rounded-md" />
               </div>
@@ -311,7 +316,7 @@ export function MermaidViewer({
               id="mermaid-diagram-container"
               className={`w-full h-full transition-opacity duration-300 flex justify-center items-start ${isDiagramLoaded && mermaidInitialized ? 'opacity-100' : 'opacity-0'}`}
               aria-live="polite"
-              style={{ visibility: (isDiagramLoaded && mermaidInitialized) ? 'visible' : 'hidden' }} 
+              style={{ visibility: (isDiagramLoaded && mermaidInitialized && !internalError) ? 'visible' : 'hidden' }}
             />
           </>
         )}
@@ -319,3 +324,4 @@ export function MermaidViewer({
     </Card>
   );
 }
+
