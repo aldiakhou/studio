@@ -15,6 +15,9 @@ interface UploadedFile {
   content: string;
 }
 
+const MAX_RETRIES = 2; // Max number of retries (e.g., 2 retries means 3 total attempts)
+const RETRY_DELAY_MS = 3000; // Delay between retries in milliseconds
+
 export default function CodeFlowPage() {
   const [code, setCode] = useState<string>('');
   const [uploadedFolderFiles, setUploadedFolderFiles] = useState<UploadedFile[] | null>(null);
@@ -69,33 +72,76 @@ export default function CodeFlowPage() {
     setMermaidSyntax(null); 
     setHighlightedNodeText(null);
 
-    try {
-      const result = await generateMermaidDiagramAction(input) as GenerateMermaidDiagramOutput & { error?: string };
-      if (result.error) {
-        throw new Error(result.error);
+    let attempts = 0;
+    let operationSuccessful = false;
+    let lastError: any = null;
+
+    while (attempts <= MAX_RETRIES && !operationSuccessful) {
+      try {
+        const result = await generateMermaidDiagramAction(input) as GenerateMermaidDiagramOutput & { error?: string };
+        
+        if (result.error) {
+          const errorMessage = result.error;
+          const isRetryable = (errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('try again later'));
+
+          if (isRetryable && attempts < MAX_RETRIES) {
+            attempts++;
+            lastError = new Error(errorMessage);
+            toast({
+              title: `Attempt ${attempts} Failed (Model Overloaded)`,
+              description: `Retrying in ${RETRY_DELAY_MS / 1000}s... (Attempt ${attempts + 1}/${MAX_RETRIES + 1})`,
+              variant: 'default',
+            });
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+            continue; // Next attempt
+          }
+          throw new Error(errorMessage); // Non-retryable error or max retries reached
+        }
+
+        if (result.mermaidDiagram) {
+          setMermaidSyntax(result.mermaidDiagram);
+          toast({
+            title: 'Diagram Generated',
+            description: 'Mermaid diagram successfully created.',
+          });
+          operationSuccessful = true;
+          lastError = null; // Clear error on success
+        } else {
+          throw new Error('AI did not return a diagram. Try modifying your input or prompt.');
+        }
+      } catch (e: any) {
+        lastError = e;
+        const message = e.message || 'An unknown error occurred.';
+        const isRetryable = (message.includes('503') || message.toLowerCase().includes('overloaded') || message.toLowerCase().includes('try again later'));
+
+        if (isRetryable && attempts < MAX_RETRIES) {
+          attempts++;
+          toast({
+            title: `Attempt ${attempts} Failed (Service Unavailable)`,
+            description: `Retrying in ${RETRY_DELAY_MS / 1000}s... (Attempt ${attempts + 1}/${MAX_RETRIES + 1})`,
+            variant: 'default',
+          });
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+          continue; // Next attempt
+        }
+        // Non-retryable error or max retries reached from direct exception
+        break; // Exit loop, will be handled by final error check
       }
-      if (result.mermaidDiagram) {
-        setMermaidSyntax(result.mermaidDiagram);
-        toast({
-          title: 'Diagram Generated',
-          description: 'Mermaid diagram successfully created.',
-        });
-      } else {
-        throw new Error('AI did not return a diagram. Try modifying your input or prompt.');
-      }
-    } catch (e: any) {
-      console.error('Error generating diagram:', e);
-      const errorMessage = e.message || 'Failed to generate diagram. Please try again.';
-      setError(errorMessage);
+    }
+
+    if (!operationSuccessful && lastError) {
+      console.error('Error generating diagram after retries:', lastError);
+      const finalErrorMessage = lastError.message || 'Failed to generate diagram after multiple attempts. Please try again later.';
+      setError(finalErrorMessage);
       setMermaidSyntax(null);
       toast({
         title: 'Generation Failed',
-        description: errorMessage,
+        description: finalErrorMessage,
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
+
+    setIsLoading(false);
   };
 
   return (
