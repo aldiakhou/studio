@@ -41,8 +41,8 @@ Based on the project files provided below, generate a single Mermaid diagram tha
 Your diagram should include:
 1.  **File and Folder Structure:** Use subgraphs to represent folders. Show individual files within their respective folders.
 2.  **Key Code Elements:** Within or linked to each file, detail important:
-    *   **Classes:** Include their names and a list of important methods (e.g., \`MyClass[methodA(), methodB()]\`).
-    *   **Functions/Methods:** Show their names. If space permits and it's crucial for understanding, include key parameters and a concise return type (e.g., \`calculateTotal(items: Array, discount?: number): number\`).
+    *   **Classes:** Include their names and a list of important methods (e.g., label "MyClass" with methods listed).
+    *   **Functions/Methods:** Show their names. If space permits and it's crucial for understanding, include key parameters and a concise return type (e.g., label "calculateTotal(items: Array, discount?: number): number").
     *   **Objects:** Represent significant object instantiations or definitions.
     *   **Variables/Constants:** Depict important module-level or class-level variables/constants if they play a key role in the structure or logic.
 3.  **Relationships:** Clearly show relationships between these elements, such as:
@@ -50,14 +50,17 @@ Your diagram should include:
     *   Class inheritance or implementation.
     *   Instantiation of classes.
     *   Import/export dependencies between files/modules.
-4.  **Node Naming for Interactivity:** Ensure node labels are descriptive and specific (e.g., \`"file.ts/MyClass"\`, \`"utils.js/formatDate()"\`). Make class methods or functions part of the node label itself or closely associated if that makes the diagram clearer. If a node represents a function, its label should ideally be the function signature. If it's a class, its label could be the class name, potentially with key methods.
 
 Guidelines for the diagram:
 -   **Clarity and Readability:** While detail is requested, the diagram must remain understandable. Avoid excessive clutter. Make smart choices about what is "important" to display.
--   **Mermaid Syntax:** Use valid Mermaid syntax (e.g., \`graph TD;\` or \`graph LR;\`).
-    *   **Node IDs and Labels:** If node IDs or display text (labels) contain spaces, special characters (like ':', '(', ')', '[', ']', '{', '}', '-', '>', '/'), or Mermaid keywords, they **MUST** be enclosed in double quotes (e.g., \`A["Node Text: (Special Details)"] --> B["Another Node"];\`). For example, if a node represents a file path like \`src/components/button.tsx\`, its ID and label should be quoted: \`"src/components/button.tsx"\`. If it represents a function call like \`MyClass.getUser(id: string): User\`, it should be quoted like \`"MyClass.getUser(id: string): User"\`.
-    *   Avoid using characters that could break Mermaid syntax within unquoted node text or IDs. For characters within quoted strings that Mermaid might misinterpret (like internal quotes), ensure they are appropriately handled or simplified if complex escaping is not feasible for the AI.
-    *   Ensure all connections (\`-->\`, \`---\`, etc.) are correctly formatted.
+-   **Mermaid Syntax and Node Naming:**
+    *   **Node IDs:** For each element (file, class, function, etc.), use a simple, unique, **alphanumeric ID** (e.g., \`file1\`, \`classA\`, \`funcB_in_classA\`, \`varX\`). These IDs **MUST NOT** contain spaces, slashes, colons, parentheses, brackets, or any other special characters.
+    *   **Node Labels (Display Text):** The descriptive text for a node (e.g., the actual file path like \`src/components/button.tsx\`, or a function signature like \`MyClass.getUser(id: string): User\`) **MUST** be provided as the label part, enclosed in double quotes.
+        Example of defining a node: \`file1["src/components/button.tsx"]\`
+        Example of defining another node: \`funcA["doSomething(param1: string): void"]\`
+        Example of a link: \`file1 --> funcA\`
+    *   If a descriptive label itself needs to contain double quotes, try to simplify the label to avoid this. If unavoidable, ensure Mermaid's requirements for escaping internal quotes are met (often by using \`&quot;\` or by careful structuring, though simplification is highly preferred).
+    *   Ensure all connections (\`-->\`, \`---\`, etc.) are correctly formatted between the simple alphanumeric IDs.
 -   **Focus:** The goal is to understand the project's components and how they interact.
 -   **Conciseness:** Be concise in labels, especially for parameters and return types.
 
@@ -94,7 +97,7 @@ const generateMermaidDiagramFlow = ai.defineFlow(
     }
     // Basic check for common Mermaid syntax start
     if (!output.mermaidDiagram.trim().match(/^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|journey|requirementDiagram|C4Context|mindmap)/i)) {
-        throw new Error("Generated diagram does not start with a valid Mermaid graph type (e.g., graph TD, flowchart LR).");
+        throw new Error("Generated diagram does not start with a valid Mermaid graph type (e.g., graph TD, flowchart LR). The AI returned: " + output.mermaidDiagram.substring(0, 100));
     }
     return output;
   }
