@@ -40,30 +40,32 @@ Based on the project files provided below, generate a single Mermaid diagram tha
 
 Your diagram should include:
 1.  **File and Folder Structure:**
-    *   **CRITICAL: Use Mermaid 'subgraph' blocks for EACH file.** The label for the subgraph MUST be the exact file path enclosed in double quotes (e.g., \`subgraph "src/components/button.tsx"\`).
-    *   If there's a clear folder structure, you can optionally nest subgraphs for folders, but individual file subgraphs are essential.
+    *   **CRITICAL: Each file MUST be represented by a Mermaid 'subgraph' block.** Each subgraph declaration MUST follow this specific pattern: \`subgraph unique_file_id ["Full/File/Path.extension"]\`.
+        *   The \`unique_file_id\` part must be a simple alphanumeric string (underscores allowed, e.g., \`file1_utils_ts\`, \`component_button_jsx\`). It must be unique for each file and MUST NOT contain spaces, slashes, colons, parentheses, brackets, or any other special characters.
+        *   The \`["Full/File/Path.extension"]\` part is the display label and MUST be the exact file path enclosed in double quotes. This label is for display purposes.
+    *   If there's a clear folder structure, you can optionally nest subgraphs for folders, but individual file subgraphs following the pattern above are essential.
+
 2.  **Key Code Elements (within their file's subgraph):**
     *   **Classes:** Represent as nodes within their file's subgraph. Include their names. If methods are important for understanding, list key method names as part of the class node's label or as separate linked nodes if space permits.
     *   **Functions/Methods:** Represent as nodes within their file's subgraph. Show their names. If concise and crucial, include key parameters and a return type in the label (e.g., \`"calculateTotal(items: Array, discount?: number): number"\`).
     *   **Objects:** Represent significant object instantiations or definitions as nodes if they are central to the structure.
     *   **Variables/Constants:** Depict important module-level or class-level variables/constants as nodes if they play a key role in the structure or logic.
+
 3.  **Relationships:** Clearly show relationships between these elements (both within the same file and across different files), such as:
     *   Function/method calls.
     *   Class inheritance or implementation.
     *   Instantiation of classes.
-    *   Import/export dependencies between files/modules (link file subgraphs or nodes within them).
+    *   Import/export dependencies between files/modules (link file subgraphs or nodes within them using their simple alphanumeric IDs).
 
 Guidelines for the diagram:
 -   **Clarity and Interactivity:** The primary goal is to create a diagram where clicking on a file's subgraph label (the file path) will be used by the application to show that file's content. Therefore, accurate file path labeling for subgraphs is paramount.
 -   **Mermaid Syntax and Node Naming - VERY IMPORTANT:**
-    *   **Node IDs:** For each element (file subgraph, class, function, etc.), use a simple, unique, **alphanumeric ID** (e.g., \`file1\`, \`classA\`, \`funcB_in_classA\`, \`varX\`). These IDs **MUST NOT** contain spaces, slashes, colons, parentheses, brackets, or any other special characters. Use underscores if needed (e.g., \`src_components_button_tsx\`).
-    *   **Node Labels (Display Text):** The descriptive text for a node (e.g., a function signature like \`MyClass.getUser(id: string): User\`) **MUST** be provided as the label part, enclosed in double quotes. Example of defining a node: \`funcA["doSomething(param1: string): void"]\`.
-    *   **Subgraph Labels:** As stated, use the file path in quotes: \`subgraph "src/components/button.tsx"\`.
+    *   **Node IDs (for classes, functions, variables, etc.):** Use a simple, unique, **alphanumeric ID** (e.g., \`classA\`, \`funcB_in_classA\`, \`varX\`). These IDs **MUST NOT** contain spaces, slashes, colons, parentheses, brackets, or any other special characters. Use underscores if needed.
+    *   **Node Labels (Display Text for classes, functions, etc.):** The descriptive text for a node (e.g., a function signature like \`MyClass.getUser(id: string): User\`) **MUST** be provided as the label part, enclosed in double quotes. Example of defining such a node: \`funcA_id["doSomething(param1: string): void"]\`.
+    *   **Subgraph Definition:** For files, strictly follow the pattern: \`subgraph unique_file_id ["path/to/your/file.ext"]\`. The \`unique_file_id\` must be simple (letters, numbers, underscores), unique, and adhere to the Node ID rules. The "path/to/your/file.ext" is the display label, in quotes, and single-line.
     *   **CRITICAL: All node labels and subgraph labels MUST be single-line.** Do NOT include raw newline characters (e.g., '\\n') or attempt to create multi-line labels by embedding extensive file content, '---' separators, or code snippets directly within a node's or subgraph's quoted label.
     *   Use labels for concise identification, not for embedding large blocks of text or file contents.
-    *   Ensure all connections (\`-->\`, \`---\`, etc.) are correctly formatted between the simple alphanumeric IDs.
--   **Focus:** Understand the project's components and how they interact.
--   **Conciseness:** Be concise in labels, especially for parameters and return types.
+    *   Ensure all connections (\`-->\`, \`---\`, etc.) are correctly formatted between the simple alphanumeric IDs (of nodes or subgraphs).
 
 Project Files:
 {{#each files}}
