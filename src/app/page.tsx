@@ -45,8 +45,6 @@ export default function CodeFlowPage() {
   };
 
   const handleCodeChange = (newCode: string) => {
-    // If user types in editor after a folder was uploaded,
-    // we assume they want to analyze the typed code, not the folder.
     if (uploadedFolderFiles && newCode !== code && !newCode.startsWith("Folder uploaded:")) {
       setUploadedFolderFiles(null); 
     }
@@ -55,13 +53,10 @@ export default function CodeFlowPage() {
 
   useEffect(() => {
     if (highlightedNodeText && uploadedFolderFiles && uploadedFolderFiles.length > 0) {
-      // Attempt to find if the highlighted text is a file path from a subgraph label
-      const potentialPath = highlightedNodeText; // Assuming label is just the path
+      const potentialPath = highlightedNodeText; 
       const foundFile = uploadedFolderFiles.find(f => f.path === potentialPath);
 
       if (foundFile) {
-        // If the user has manually edited the "Folder uploaded..." message, preserve it.
-        // Otherwise, show the content of the selected file.
         if (code.startsWith("Folder uploaded:") || (uploadedFolderFiles && uploadedFolderFiles.some(upFile => upFile.path === potentialPath)) ) {
            setCode(foundFile.content);
            toast({
@@ -72,14 +67,14 @@ export default function CodeFlowPage() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlightedNodeText, uploadedFolderFiles]); // setCode and toast are stable
+  }, [highlightedNodeText, uploadedFolderFiles]);
 
   const handleGenerateDiagram = async () => {
     let input: GenerateMermaidDiagramInput;
 
     if (uploadedFolderFiles && uploadedFolderFiles.length > 0) {
       input = { files: uploadedFolderFiles };
-    } else if (code.trim() && !code.startsWith("Folder uploaded:")) { // Ensure it's not just the placeholder message
+    } else if (code.trim() && !code.startsWith("Folder uploaded:")) {
       input = { files: [{ path: 'input_code.txt', content: code }] };
     } else {
       toast({
@@ -93,7 +88,6 @@ export default function CodeFlowPage() {
     setIsLoading(true);
     setError(null);
     setMermaidSyntax(null); 
-    // setHighlightedNodeText(null); // Keep highlighted node if user re-generates
 
     let attempts = 0;
     let operationSuccessful = false;
@@ -156,8 +150,8 @@ export default function CodeFlowPage() {
     }
 
     if (!operationSuccessful && lastError) {
-      console.error('Error generating diagram after retries:', lastError);
       const finalErrorMessage = lastError.message || 'Failed to generate diagram after multiple attempts. Please try again later.';
+      console.error('Error generating diagram after retries: ' + finalErrorMessage);
       setError(finalErrorMessage);
       setMermaidSyntax(null);
       toast({
